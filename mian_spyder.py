@@ -21,9 +21,9 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
-
 def imshow(img,text=None,should_save=False):
     npimg = img.numpy()
+    plt.figure()
     plt.axis("off")
     if text:
         plt.text(75, 8, text, style='italic',fontweight='bold',
@@ -39,7 +39,7 @@ class Config():
     training_dir = "./data/faces/training/"
     testing_dir = "./data/faces/testing/"
     train_batch_size = 64
-    train_number_epochs = 100
+    train_number_epochs = 20
     
 class SiameseNetworkDataset(Dataset):
     
@@ -101,10 +101,7 @@ dataiter = iter(vis_dataloader)
 
 example_batch = next(dataiter)
 concatenated = torch.cat((example_batch[0],example_batch[1]),0)
-# images = torchvision.utils.make_grid(concatenated).numpy()
-# plt.imshow(images)
-# plt.show()
-# imshow(torchvision.utils.make_grid(concatenated))
+imshow(torchvision.utils.make_grid(concatenated))
 print(example_batch[2].numpy())
 
 class SiameseNetwork(nn.Module):
@@ -120,7 +117,6 @@ class SiameseNetwork(nn.Module):
             nn.Conv2d(4, 8, kernel_size=3),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(8),
-
 
             nn.ReflectionPad2d(1),
             nn.Conv2d(8, 8, kernel_size=3),
@@ -180,6 +176,7 @@ net = SiameseNetwork()
 criterion = ContrastiveLoss()
 optimizer = optim.Adam(net.parameters(),lr = 0.0005 )
 
+
 counter = []
 loss_history = [] 
 iteration_number= 0
@@ -187,7 +184,6 @@ iteration_number= 0
 for epoch in range(0,Config.train_number_epochs):
     for i, data in enumerate(train_dataloader,0):
         img0, img1 , label = data
-        # img0, img1 , label = img0.cuda(), img1.cuda() , label.cuda()
         optimizer.zero_grad()
         output1,output2 = net(img0,img1)
         loss_contrastive = criterion(output1,output2,label)
@@ -207,7 +203,7 @@ siamese_dataset = SiameseNetworkDataset(imageFolderDataset=folder_dataset_test,
                                                                       ])
                                        ,should_invert=False)
 
-test_dataloader = DataLoader(siamese_dataset,num_workers=6,batch_size=1,shuffle=True)
+test_dataloader = DataLoader(siamese_dataset,num_workers=0,batch_size=1,shuffle=True)
 dataiter = iter(test_dataloader)
 x0,_,_ = next(dataiter)
 
@@ -215,6 +211,6 @@ for i in range(10):
     _,x1,label2 = next(dataiter)
     concatenated = torch.cat((x0,x1),0)
     
-    output1,output2 = net(Variable(x0).cuda(),Variable(x1).cuda())
+    output1,output2 = net(Variable(x0),Variable(x1))
     euclidean_distance = F.pairwise_distance(output1, output2)
     imshow(torchvision.utils.make_grid(concatenated),'Dissimilarity: {:.2f}'.format(euclidean_distance.item()))
